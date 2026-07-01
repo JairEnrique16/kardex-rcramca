@@ -20,6 +20,7 @@ import Insumos from './pages/Insumos'
 import Recetas from './pages/Recetas'
 import OrdenesProduccion from './pages/OrdenesProduccion'
 import Mermas from './pages/Mermas'
+import Ventas from './pages/Ventas'
 
 function App() {
   const { user, loading } = useAuth()
@@ -55,6 +56,7 @@ function App() {
       <Route path="/ordenes-produccion" element={user ? <OrdenesProduccion /> : <Navigate to="/login" />} />
       <Route path="/mermas" element={user ? <Mermas /> : <Navigate to="/login" />} />
       <Route path="*" element={<Navigate to="/login" />} />
+      <Route path="/ventas" element={user ? <Ventas /> : <Navigate to="/login" />} />
     </Routes>
   )
 }

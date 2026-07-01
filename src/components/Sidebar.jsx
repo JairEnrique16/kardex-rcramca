@@ -31,13 +31,12 @@ function Sidebar() {
     { path: '/reclamos', label: 'Reclamos' },
   ]
 
-  const menuVendedor = [
+ const menuVendedor = [
     { path: '/dashboard', label: 'Dashboard' },
-    { path: '/salidas', label: 'Registrar Salida' },
+    { path: '/ventas', label: 'Registrar Venta' },
     { path: '/consulta-stock', label: 'Consultar Stock' },
     { path: '/precios', label: 'Consultar Precios' },
   ]
-
   const menuProduccion = [
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/insumos', label: 'Insumos' },
