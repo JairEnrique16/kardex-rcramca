@@ -9,6 +9,11 @@ function Dashboard() {
   const [ultimosMovimientos, setUltimosMovimientos] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const [filtroFechaInicio, setFiltroFechaInicio] = useState('')
+  const [filtroFechaFin, setFiltroFechaFin] = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroProducto, setFiltroProducto] = useState('')
+
   useEffect(() => {
     cargarDatos()
   }, [])
@@ -54,7 +59,7 @@ function Dashboard() {
       .from('movimientos')
       .select('*, detalle_movimientos(cantidad, productos(nombre))')
       .order('fecha', { ascending: false })
-      .limit(5)
+      .limit(50)
 
     const movConUsuario = await Promise.all((ultMov || []).map(async (m) => {
       const { data: perfil } = await supabase
@@ -88,7 +93,16 @@ function Dashboard() {
     if (tipo.includes('salida')) return 'bg-red-100 text-red-700'
     return 'bg-blue-100 text-blue-700'
   }
-
+  const ultimosMovimientosFiltrados = ultimosMovimientos.filter(m => {
+    const fecha = new Date(m.fecha)
+    const cumpleFechaInicio = filtroFechaInicio ? fecha >= new Date(filtroFechaInicio) : true
+    const cumpleFechaFin = filtroFechaFin ? fecha <= new Date(filtroFechaFin + 'T23:59:59') : true
+    const cumpleTipo = filtroTipo ? m.tipo === filtroTipo : true
+    const cumpleProducto = filtroProducto
+      ? m.detalle_movimientos?.[0]?.productos?.nombre?.toLowerCase().includes(filtroProducto.toLowerCase())
+      : true
+    return cumpleFechaInicio && cumpleFechaFin && cumpleTipo && cumpleProducto
+  })
   return (
     <Layout>
       <h2 className="text-xl font-bold text-gray-700 mb-6">Dashboard</h2>
@@ -130,9 +144,43 @@ function Dashboard() {
       {/* Últimos movimientos */}
       <div className="bg-white rounded-xl shadow p-4">
         <h3 className="text-md font-semibold text-gray-700 mb-4">Últimos movimientos</h3>
+
+        {/* Filtros */}
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          <input
+            type="date"
+            placeholder="Fecha inicio"
+            onChange={(e) => setFiltroFechaInicio(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          />
+          <input
+            type="date"
+            placeholder="Fecha fin"
+            onChange={(e) => setFiltroFechaFin(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          />
+          <select
+            onChange={(e) => setFiltroTipo(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">Todos los tipos</option>
+            <option value="ingreso_proveedor">Ingreso Proveedor</option>
+            <option value="ingreso_produccion">Ingreso Producción</option>
+            <option value="salida_venta">Salida Venta</option>
+            <option value="traslado">Traslado</option>
+            <option value="merma">Merma</option>
+          </select>
+          <input
+            type="text"
+            placeholder="Buscar producto..."
+            onChange={(e) => setFiltroProducto(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+
         {loading ? (
           <p className="text-center text-gray-400 py-4">Cargando...</p>
-        ) : ultimosMovimientos.length === 0 ? (
+        ) : ultimosMovimientosFiltrados.length === 0 ? (
           <p className="text-center text-gray-400 py-4">No hay movimientos registrados aún.</p>
         ) : (
           <table className="w-full text-sm">
@@ -146,7 +194,7 @@ function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {ultimosMovimientos.map(m => (
+              {ultimosMovimientosFiltrados.map(m => (
                 <tr key={m.id_movimiento} className="border-t border-gray-100 hover:bg-gray-50">
                   <td className="px-4 py-2 text-xs">{formatFecha(m.fecha)}</td>
                   <td className="px-4 py-2">
