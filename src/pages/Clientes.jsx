@@ -5,11 +5,13 @@ import { registrarAuditoria } from '../utils/auditoria'
 import { useAuth } from '../context/AuthContext'
 
 function Clientes() {
+  const { user } = useAuth()
   const [clientes, setClientes] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const { user } = useAuth()
+  const [editando, setEditando] = useState(null)
   const [busqueda, setBusqueda] = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('')
   const [form, setForm] = useState({
     nombre_razon_social: '',
     tipo: 'minorista',
@@ -35,19 +37,45 @@ function Clientes() {
       alert('El nombre es obligatorio')
       return
     }
-    const { error } = await supabase.from('clientes').insert({
-      nombre_razon_social: form.nombre_razon_social,
-      tipo: form.tipo,
-      telefono: form.telefono,
-    })
-    if (error) {
-      alert('Error: ' + error.message)
+
+    if (editando) {
+      const { error } = await supabase.from('clientes').update({
+        nombre_razon_social: form.nombre_razon_social,
+        tipo: form.tipo,
+        telefono: form.telefono,
+      }).eq('id_cliente', editando)
+      if (error) {
+        alert('Error: ' + error.message)
+        return
+      }
+      await registrarAuditoria(user?.id, 'Cliente editado: ' + form.nombre_razon_social, 'Clientes')
     } else {
+      const { error } = await supabase.from('clientes').insert({
+        nombre_razon_social: form.nombre_razon_social,
+        tipo: form.tipo,
+        telefono: form.telefono,
+      })
+      if (error) {
+        alert('Error: ' + error.message)
+        return
+      }
       await registrarAuditoria(user?.id, 'Nuevo cliente registrado: ' + form.nombre_razon_social + ' (' + form.tipo + ')', 'Clientes')
-      setShowForm(false)
-      setForm({ nombre_razon_social: '', tipo: 'minorista', telefono: '' })
-      cargarClientes()
     }
+
+    setShowForm(false)
+    setEditando(null)
+    setForm({ nombre_razon_social: '', tipo: 'minorista', telefono: '' })
+    cargarClientes()
+  }
+
+  function handleEditar(cliente) {
+    setEditando(cliente.id_cliente)
+    setForm({
+      nombre_razon_social: cliente.nombre_razon_social,
+      tipo: cliente.tipo,
+      telefono: cliente.telefono || '',
+    })
+    setShowForm(true)
   }
 
   async function handleEliminar(id) {
@@ -56,35 +84,53 @@ function Clientes() {
     await registrarAuditoria(user?.id, 'Cliente eliminado', 'Clientes')
     cargarClientes()
   }
-  const clientesFiltrados = clientes.filter(c =>
-    c.nombre_razon_social.toLowerCase().includes(busqueda.toLowerCase())
-  )
+
+  const clientesFiltrados = clientes.filter(c => {
+    const cumpleNombre = c.nombre_razon_social.toLowerCase().includes(busqueda.toLowerCase())
+    const cumpleTelefono = c.telefono?.includes(busqueda)
+    const cumpleBusqueda = cumpleNombre || cumpleTelefono
+    const cumpleTipo = filtroTipo ? c.tipo === filtroTipo : true
+    return cumpleBusqueda && cumpleTipo
+  })
+
   return (
     <Layout>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-gray-700">Clientes</h2>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => { setShowForm(true); setEditando(null); setForm({ nombre_razon_social: '', tipo: 'minorista', telefono: '' }) }}
           className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm"
         >
           + Agregar cliente
         </button>
       </div>
 
-      <div className="mb-4">
+      {/* Filtros */}
+      <div className="flex gap-3 mb-4">
         <input
           type="text"
-          placeholder="Buscar cliente por nombre..."
+          placeholder="Buscar por nombre o teléfono..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+        <select
+          value={filtroTipo}
+          onChange={(e) => setFiltroTipo(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="">Todos los tipos</option>
+          <option value="minorista">Minorista</option>
+          <option value="mayorista">Mayorista</option>
+        </select>
       </div>
 
       {showForm && (
         <div className="bg-white rounded-xl shadow p-6 mb-6">
-          <h3 className="text-md font-semibold text-gray-700 mb-4">Nuevo Cliente</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <h3 className="text-md font-semibold text-gray-700 mb-4">
+            {editando ? 'Editar Cliente' : 'Nuevo Cliente'}
+          </h3>
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="text-sm text-gray-600">Nombre / Razón Social *</label>
               <input
@@ -120,10 +166,10 @@ function Clientes() {
               onClick={handleGuardar}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
             >
-              Guardar
+              {editando ? 'Actualizar' : 'Guardar'}
             </button>
             <button
-              onClick={() => setShowForm(false)}
+              onClick={() => { setShowForm(false); setEditando(null) }}
               className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm"
             >
               Cancelar
@@ -159,7 +205,13 @@ function Clientes() {
                     </span>
                   </td>
                   <td className="px-4 py-3">{c.telefono || '-'}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 flex gap-2">
+                    <button
+                      onClick={() => handleEditar(c)}
+                      className="text-blue-500 hover:text-blue-700 text-xs"
+                    >
+                      Editar
+                    </button>
                     <button
                       onClick={() => handleEliminar(c.id_cliente)}
                       className="text-red-500 hover:text-red-700 text-xs"

@@ -16,7 +16,6 @@ function Reportes() {
   async function cargarReportes() {
     setLoading(true)
 
-    // Reporte stock bajo
     const { data: productos } = await supabase
       .from('productos')
       .select('id_producto, nombre, stock_minimo, unidad_medida, categorias(nombre)')
@@ -38,7 +37,6 @@ function Reportes() {
 
     setReporteStockBajo(bajos)
 
-    // Reporte movimientos por producto
     const { data: detalles } = await supabase
       .from('detalle_movimientos')
       .select('id_producto, cantidad, productos(nombre), movimientos(tipo, fecha)')
@@ -54,6 +52,7 @@ function Reportes() {
     const reporte = Object.entries(movPorProducto)
       .map(([nombre, cantidad]) => ({ nombre, cantidad }))
       .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, 20)
 
     setReporteMovimientos(reporte)
     setLoading(false)
@@ -69,14 +68,17 @@ function Reportes() {
     const { data: detalles } = await supabase
       .from('detalle_movimientos')
       .select('id_producto, cantidad, productos(nombre), movimientos(tipo, fecha)')
-      .gte('movimientos.fecha', fechaInicio)
-      .lte('movimientos.fecha', fechaFin + 'T23:59:59')
 
     const movPorProducto = {}
     detalles?.forEach(d => {
       if (d.movimientos?.tipo === 'salida_venta') {
-        const nombre = d.productos?.nombre || 'Desconocido'
-        movPorProducto[nombre] = (movPorProducto[nombre] || 0) + d.cantidad
+        const fecha = new Date(d.movimientos.fecha)
+        const inicio = new Date(fechaInicio)
+        const fin = new Date(fechaFin + 'T23:59:59')
+        if (fecha >= inicio && fecha <= fin) {
+          const nombre = d.productos?.nombre || 'Desconocido'
+          movPorProducto[nombre] = (movPorProducto[nombre] || 0) + d.cantidad
+        }
       }
     })
 
@@ -92,9 +94,9 @@ function Reportes() {
     <Layout>
       <h2 className="text-xl font-bold text-gray-700 mb-6">Reportes</h2>
 
-      {/* Reporte productos más vendidos */}
       <div className="bg-white rounded-xl shadow p-6 mb-6">
-        <h3 className="text-md font-semibold text-gray-700 mb-4">Productos más vendidos</h3>
+        <h3 className="text-md font-semibold text-gray-700 mb-1">Productos más vendidos</h3>
+        <p className="text-xs text-gray-400 mb-4">Mostrando top 20 </p>
 
         <div className="flex gap-4 mb-4">
           <div>
@@ -157,7 +159,6 @@ function Reportes() {
         )}
       </div>
 
-      {/* Reporte stock bajo */}
       <div className="bg-white rounded-xl shadow p-6">
         <h3 className="text-md font-semibold text-gray-700 mb-4">Productos con stock bajo</h3>
         {loading ? (
