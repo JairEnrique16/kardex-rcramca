@@ -12,15 +12,22 @@ function Mermas() {
   const [mermas, setMermas] = useState([])
   const [loading, setLoading] = useState(false)
   const [exito, setExito] = useState(false)
-  const [form, setForm] = useState({
-    id_producto: '',
-    cantidad: '',
-    motivo: '',
-  })
+  const [buscando, setBuscando] = useState(false)
+  const [form, setForm] = useState({ id_producto: '', cantidad: '', motivo: '' })
+
+  // Filtros
+  const [filtroFechaInicio, setFiltroFechaInicio] = useState('')
+  const [filtroFechaFin, setFiltroFechaFin] = useState('')
+  const [filtroProducto, setFiltroProducto] = useState('')
+  const [filtroAlmacen, setFiltroAlmacen] = useState('')
+  const [filtroMotivo, setFiltroMotivo] = useState('')
+  const [filtroUsuario, setFiltroUsuario] = useState('')
+  const [ubicaciones, setUbicaciones] = useState([])
 
   useEffect(() => {
     cargarProductos()
     cargarMermas()
+    cargarUbicaciones()
   }, [])
 
   async function cargarProductos() {
@@ -32,22 +39,56 @@ function Mermas() {
     setProductos(data || [])
   }
 
-  async function cargarMermas() {
-    const { data } = await supabase
+  async function cargarUbicaciones() {
+    const { data } = await supabase.from('ubicaciones').select('*').eq('activo', true).order('nombre')
+    setUbicaciones(data || [])
+  }
+
+  async function cargarMermas(conFiltros = false) {
+    let query = supabase
       .from('movimientos')
-      .select('*, detalle_movimientos(cantidad, productos(nombre), ubicaciones_origen:ubicaciones!detalle_movimientos_id_ubicacion_origen_fkey(nombre))')
+      .select(`*, detalle_movimientos(
+        cantidad,
+        productos(nombre, marca),
+        ubicaciones_origen:ubicaciones!detalle_movimientos_id_ubicacion_origen_fkey(nombre)
+      )`)
       .eq('tipo', 'merma')
       .order('fecha', { ascending: false })
 
+    if (filtroFechaInicio) query = query.gte('fecha', filtroFechaInicio)
+    if (filtroFechaFin) query = query.lte('fecha', filtroFechaFin + 'T23:59:59')
+    if (!conFiltros) query = query.limit(20)
+
+    const { data } = await query
+
     if (data) {
-      const mermasConUsuario = await Promise.all(data.map(async (m) => {
+      let mermasConUsuario = await Promise.all(data.map(async (m) => {
         const { data: perfil } = await supabase
-          .from('perfiles')
-          .select('nombre')
-          .eq('id', m.id_usuario)
-          .single()
+          .from('perfiles').select('nombre').eq('id', m.id_usuario).single()
         return { ...m, nombre_usuario: perfil?.nombre || '-' }
       }))
+
+      if (filtroProducto) {
+        mermasConUsuario = mermasConUsuario.filter(m =>
+          m.detalle_movimientos?.[0]?.productos?.nombre?.toLowerCase().includes(filtroProducto.toLowerCase())
+        )
+      }
+      if (filtroAlmacen) {
+        mermasConUsuario = mermasConUsuario.filter(m =>
+          m.detalle_movimientos?.[0]?.ubicaciones_origen?.nombre?.toLowerCase().includes(filtroAlmacen.toLowerCase())
+        )
+      }
+      if (filtroMotivo) {
+        mermasConUsuario = mermasConUsuario.filter(m =>
+          m.observacion?.toLowerCase().includes(filtroMotivo.toLowerCase())
+        )
+      }
+      if (filtroUsuario) {
+        mermasConUsuario = mermasConUsuario.filter(m =>
+          m.nombre_usuario.toLowerCase().includes(filtroUsuario.toLowerCase())
+        )
+      }
+
       setMermas(mermasConUsuario)
     }
   }
@@ -83,11 +124,7 @@ function Mermas() {
 
     const { data: movimiento, error } = await supabase
       .from('movimientos')
-      .insert({
-        tipo: 'merma',
-        id_usuario: user.id,
-        observacion: form.motivo,
-      })
+      .insert({ tipo: 'merma', id_usuario: user.id, observacion: form.motivo })
       .select()
       .single()
 
@@ -104,8 +141,7 @@ function Mermas() {
       cantidad: parseInt(form.cantidad),
     })
 
-    await supabase
-      .from('stock')
+    await supabase.from('stock')
       .update({ cantidad_actual: stockUbicacion.cantidad_actual - parseInt(form.cantidad) })
       .eq('id_stock', stockUbicacion.id_stock)
 
@@ -118,6 +154,22 @@ function Mermas() {
     setForm({ id_producto: '', cantidad: '', motivo: '' })
     cargarMermas()
     setTimeout(() => setExito(false), 3000)
+  }
+
+  function handleBuscar() {
+    setBuscando(true)
+    cargarMermas(true)
+  }
+
+  function handleLimpiar() {
+    setFiltroFechaInicio('')
+    setFiltroFechaFin('')
+    setFiltroProducto('')
+    setFiltroAlmacen('')
+    setFiltroMotivo('')
+    setFiltroUsuario('')
+    setBuscando(false)
+    cargarMermas(false)
   }
 
   function formatFecha(fecha) {
@@ -134,6 +186,7 @@ function Mermas() {
         </div>
       )}
 
+      {/* Formulario */}
       <div className="bg-white rounded-xl shadow p-6 max-w-2xl mb-6">
         <h3 className="text-md font-semibold text-gray-700 mb-4">Registrar Merma</h3>
         <div className="space-y-4">
@@ -149,7 +202,9 @@ function Mermas() {
             >
               <option value="">Seleccionar producto</option>
               {productos.map(p => (
-                <option key={p.id_producto} value={p.id_producto}>{p.nombre}</option>
+                <option key={p.id_producto} value={p.id_producto}>
+                  {p.nombre} {p.marca ? `(${p.marca})` : ''}
+                </option>
               ))}
             </select>
           </div>
@@ -174,7 +229,7 @@ function Mermas() {
 
           {stockDisponible !== null && stockDisponible.length === 0 && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-600">Sin stock disponible para este producto.</p>
+              <p className="text-sm text-red-600">Sin stock disponible.</p>
             </div>
           )}
 
@@ -204,7 +259,7 @@ function Mermas() {
             </select>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3">
             <button
               onClick={handleGuardar}
               disabled={loading}
@@ -222,16 +277,74 @@ function Mermas() {
         </div>
       </div>
 
-      {/* Historial de mermas */}
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100">
-          <h3 className="text-md font-semibold text-gray-700">Historial de Mermas</h3>
+      {/* Historial */}
+      <div className="bg-white rounded-xl shadow p-6">
+        <h3 className="text-md font-semibold text-gray-700 mb-4">Historial de Mermas</h3>
+
+        {/* Filtros */}
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <div>
+            <label className="text-xs text-gray-500">Fecha inicio</label>
+            <input type="date" value={filtroFechaInicio}
+              onChange={(e) => setFiltroFechaInicio(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Fecha fin</label>
+            <input type="date" value={filtroFechaFin}
+              onChange={(e) => setFiltroFechaFin(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Producto</label>
+            <input type="text" placeholder="Buscar producto..." value={filtroProducto}
+              onChange={(e) => setFiltroProducto(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Almacén</label>
+            <input type="text" placeholder="Buscar almacén..." value={filtroAlmacen}
+              onChange={(e) => setFiltroAlmacen(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Motivo</label>
+            <select value={filtroMotivo} onChange={(e) => setFiltroMotivo(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1">
+              <option value="">Todos</option>
+              <option value="Producto vencido">Producto vencido</option>
+              <option value="Producto dañado">Producto dañado</option>
+              <option value="Producto perdido">Producto perdido</option>
+              <option value="Error de inventario">Error de inventario</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Usuario</label>
+            <input type="text" placeholder="Buscar usuario..." value={filtroUsuario}
+              onChange={(e) => setFiltroUsuario(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
+          </div>
         </div>
+
+        <div className="flex gap-2 mb-4">
+          <button onClick={handleBuscar}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+            Buscar
+          </button>
+          <button onClick={handleLimpiar}
+            className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm">
+            Limpiar
+          </button>
+        </div>
+
+        {!buscando && <p className="text-xs text-gray-400 mb-3">Mostrando últimas 20 mermas.</p>}
+
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600">
             <tr>
               <th className="px-4 py-3 text-left">Fecha</th>
               <th className="px-4 py-3 text-left">Producto</th>
+              <th className="px-4 py-3 text-left">Marca</th>
               <th className="px-4 py-3 text-left">Cantidad</th>
               <th className="px-4 py-3 text-left">Almacén</th>
               <th className="px-4 py-3 text-left">Motivo</th>
@@ -240,12 +353,13 @@ function Mermas() {
           </thead>
           <tbody>
             {mermas.length === 0 ? (
-              <tr><td colSpan="6" className="text-center py-8 text-gray-400">No hay mermas registradas.</td></tr>
+              <tr><td colSpan="7" className="text-center py-8 text-gray-400">No hay mermas registradas.</td></tr>
             ) : (
               mermas.map(m => (
                 <tr key={m.id_movimiento} className="border-t border-gray-100 hover:bg-gray-50">
                   <td className="px-4 py-3 text-xs">{formatFecha(m.fecha)}</td>
                   <td className="px-4 py-3">{m.detalle_movimientos?.[0]?.productos?.nombre || '-'}</td>
+                  <td className="px-4 py-3">{m.detalle_movimientos?.[0]?.productos?.marca || '-'}</td>
                   <td className="px-4 py-3">{m.detalle_movimientos?.[0]?.cantidad || '-'}</td>
                   <td className="px-4 py-3">{m.detalle_movimientos?.[0]?.ubicaciones_origen?.nombre || '-'}</td>
                   <td className="px-4 py-3">{m.observacion || '-'}</td>

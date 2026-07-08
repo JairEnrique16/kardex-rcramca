@@ -7,6 +7,10 @@ function Reclamos() {
   const [ventas, setVentas] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editando, setEditando] = useState(null)
+  const [buscando, setBuscando] = useState(false)
+  const [filtroVenta, setFiltroVenta] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
   const [form, setForm] = useState({
     id_venta: '',
     motivo: '',
@@ -19,13 +23,28 @@ function Reclamos() {
     cargarVentas()
   }, [])
 
-  async function cargarReclamos() {
+  async function cargarReclamos(conFiltros = false) {
     setLoading(true)
-    const { data } = await supabase
+
+    let query = supabase
       .from('registro_reclamos')
       .select('*, ventas_cabecera(id_venta, fecha)')
       .order('id_reclamo', { ascending: false })
-    setReclamos(data || [])
+
+    if (filtroEstado) query = query.eq('estado', filtroEstado)
+    if (!conFiltros) query = query.limit(20)
+
+    const { data } = await query
+
+    let resultado = data || []
+
+    if (filtroVenta) {
+      resultado = resultado.filter(r =>
+        r.id_venta?.toString().includes(filtroVenta)
+      )
+    }
+
+    setReclamos(resultado)
     setLoading(false)
   }
 
@@ -42,24 +61,62 @@ function Reclamos() {
       alert('Venta y motivo son obligatorios')
       return
     }
-    const { error } = await supabase.from('registro_reclamos').insert({
-      id_venta: parseInt(form.id_venta),
-      motivo: form.motivo,
-      descripcion: form.descripcion,
-      estado: form.estado,
-    })
-    if (error) {
-      alert('Error: ' + error.message)
+
+    if (editando) {
+      const { error } = await supabase.from('registro_reclamos').update({
+        motivo: form.motivo,
+        descripcion: form.descripcion,
+        estado: form.estado,
+      }).eq('id_reclamo', editando)
+      if (error) { alert('Error: ' + error.message); return }
     } else {
-      setShowForm(false)
-      setForm({ id_venta: '', motivo: '', descripcion: '', estado: 'abierto' })
-      cargarReclamos()
+      const { error } = await supabase.from('registro_reclamos').insert({
+        id_venta: parseInt(form.id_venta),
+        motivo: form.motivo,
+        descripcion: form.descripcion,
+        estado: form.estado,
+      })
+      if (error) { alert('Error: ' + error.message); return }
     }
+
+    setShowForm(false)
+    setEditando(null)
+    setForm({ id_venta: '', motivo: '', descripcion: '', estado: 'abierto' })
+    cargarReclamos()
+  }
+
+  function handleEditar(r) {
+    setEditando(r.id_reclamo)
+    setForm({
+      id_venta: r.id_venta,
+      motivo: r.motivo,
+      descripcion: r.descripcion || '',
+      estado: r.estado,
+    })
+    setShowForm(true)
+  }
+
+  async function handleEliminar(id) {
+    if (!confirm('¿Eliminar este reclamo?')) return
+    await supabase.from('registro_reclamos').delete().eq('id_reclamo', id)
+    cargarReclamos()
   }
 
   async function handleCambiarEstado(id, estado) {
     await supabase.from('registro_reclamos').update({ estado }).eq('id_reclamo', id)
     cargarReclamos()
+  }
+
+  function handleBuscar() {
+    setBuscando(true)
+    cargarReclamos(true)
+  }
+
+  function handleLimpiar() {
+    setFiltroVenta('')
+    setFiltroEstado('')
+    setBuscando(false)
+    cargarReclamos(false)
   }
 
   function colorEstado(estado) {
@@ -73,7 +130,7 @@ function Reclamos() {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-gray-700">Gestión de Reclamos</h2>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => { setShowForm(true); setEditando(null); setForm({ id_venta: '', motivo: '', descripcion: '', estado: 'abierto' }) }}
           className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm"
         >
           + Registrar reclamo
@@ -82,59 +139,101 @@ function Reclamos() {
 
       {showForm && (
         <div className="bg-white rounded-xl shadow p-6 mb-6">
-          <h3 className="text-md font-semibold text-gray-700 mb-4">Nuevo Reclamo</h3>
+          <h3 className="text-md font-semibold text-gray-700 mb-4">
+            {editando ? 'Editar Reclamo' : 'Nuevo Reclamo'}
+          </h3>
           <div className="space-y-4">
-            <div>
-              <label className="text-sm text-gray-600">Venta relacionada *</label>
-              <select
-                value={form.id_venta}
-                onChange={(e) => setForm({ ...form, id_venta: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
-              >
-                <option value="">Seleccionar venta</option>
-                {ventas.map(v => (
-                  <option key={v.id_venta} value={v.id_venta}>
-                    Venta #{v.id_venta} — {new Date(v.fecha).toLocaleDateString('es-PE')}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {!editando && (
+              <div>
+                <label className="text-sm text-gray-600">Venta relacionada *</label>
+                <select
+                  value={form.id_venta}
+                  onChange={(e) => setForm({ ...form, id_venta: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
+                >
+                  <option value="">Seleccionar venta</option>
+                  {ventas.map(v => (
+                    <option key={v.id_venta} value={v.id_venta}>
+                      Venta #{v.id_venta} — {new Date(v.fecha).toLocaleDateString('es-PE')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="text-sm text-gray-600">Motivo *</label>
-              <input
-                type="text"
-                value={form.motivo}
+              <input type="text" value={form.motivo}
                 onChange={(e) => setForm({ ...form, motivo: e.target.value })}
                 placeholder="Ej: Producto dañado, entrega incorrecta"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
-              />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
             <div>
               <label className="text-sm text-gray-600">Descripción</label>
-              <textarea
-                value={form.descripcion}
+              <textarea value={form.descripcion}
                 onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
-                rows="3"
-              />
+                rows="3" />
             </div>
+            {editando && (
+              <div>
+                <label className="text-sm text-gray-600">Estado</label>
+                <select value={form.estado}
+                  onChange={(e) => setForm({ ...form, estado: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1">
+                  <option value="abierto">Abierto</option>
+                  <option value="en_proceso">En proceso</option>
+                  <option value="cerrado">Cerrado</option>
+                </select>
+              </div>
+            )}
             <div className="flex gap-3">
-              <button
-                onClick={handleGuardar}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-              >
-                Guardar
+              <button onClick={handleGuardar}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                {editando ? 'Actualizar' : 'Guardar'}
               </button>
-              <button
-                onClick={() => setShowForm(false)}
-                className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm"
-              >
+              <button onClick={() => { setShowForm(false); setEditando(null) }}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm">
                 Cancelar
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Filtros */}
+      <div className="bg-white rounded-xl shadow p-4 mb-4">
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <div>
+            <label className="text-xs text-gray-500">N° de Venta</label>
+            <input type="text" placeholder="Buscar por N° venta..."
+              value={filtroVenta}
+              onChange={(e) => setFiltroVenta(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Estado</label>
+            <select value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1">
+              <option value="">Todos</option>
+              <option value="abierto">Abierto</option>
+              <option value="en_proceso">En proceso</option>
+              <option value="cerrado">Cerrado</option>
+            </select>
+          </div>
+          <div className="flex items-end gap-2">
+            <button onClick={handleBuscar}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+              Buscar
+            </button>
+            <button onClick={handleLimpiar}
+              className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm">
+              Limpiar
+            </button>
+          </div>
+        </div>
+        {!buscando && <p className="text-xs text-gray-400">Mostrando últimos 20 reclamos.</p>}
+      </div>
 
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <table className="w-full text-sm">
@@ -165,23 +264,19 @@ function Reclamos() {
                       {r.estado}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 flex gap-2">
+                    <button onClick={() => handleEditar(r)}
+                      className="text-blue-500 hover:text-blue-700 text-xs">Editar</button>
                     {r.estado === 'abierto' && (
-                      <button
-                        onClick={() => handleCambiarEstado(r.id_reclamo, 'en_proceso')}
-                        className="text-yellow-600 hover:text-yellow-800 text-xs mr-2"
-                      >
-                        En proceso
-                      </button>
+                      <button onClick={() => handleCambiarEstado(r.id_reclamo, 'en_proceso')}
+                        className="text-yellow-600 hover:text-yellow-800 text-xs">En proceso</button>
                     )}
                     {r.estado === 'en_proceso' && (
-                      <button
-                        onClick={() => handleCambiarEstado(r.id_reclamo, 'cerrado')}
-                        className="text-green-600 hover:text-green-800 text-xs"
-                      >
-                        Cerrar
-                      </button>
+                      <button onClick={() => handleCambiarEstado(r.id_reclamo, 'cerrado')}
+                        className="text-green-600 hover:text-green-800 text-xs">Cerrar</button>
                     )}
+                    <button onClick={() => handleEliminar(r.id_reclamo)}
+                      className="text-red-500 hover:text-red-700 text-xs">Eliminar</button>
                   </td>
                 </tr>
               ))

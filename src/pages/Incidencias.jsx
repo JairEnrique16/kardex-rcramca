@@ -7,33 +7,72 @@ function Incidencias() {
   const [movimientos, setMovimientos] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [buscando, setBuscando] = useState(false)
   const [form, setForm] = useState({
     id_movimiento: '',
     descripcion: '',
     gravedad: 'leve',
   })
 
+  // Filtros
+  const [filtroFechaInicio, setFiltroFechaInicio] = useState('')
+  const [filtroFechaFin, setFiltroFechaFin] = useState('')
+  const [filtroGravedad, setFiltroGravedad] = useState('')
+
   useEffect(() => {
     cargarIncidencias()
-    cargarMovimientos()
+    
   }, [])
 
-  async function cargarIncidencias() {
+  useEffect(() => {
+  
+      cargarMovimientos()
+    
+  }, [showForm])
+
+  async function cargarIncidencias(conFiltros = false) {
     setLoading(true)
-    const { data } = await supabase
+
+    let query = supabase
       .from('incidencias_proveedor')
       .select('*, movimientos(tipo, fecha)')
       .order('id_incidencia', { ascending: false })
-    setIncidencias(data || [])
+
+    if (filtroGravedad) query = query.eq('gravedad', filtroGravedad)
+    if (!conFiltros) query = query.limit(20)
+
+    const { data } = await query
+
+    let resultado = data || []
+
+    if (filtroFechaInicio) {
+      resultado = resultado.filter(i => new Date(i.movimientos?.fecha) >= new Date(filtroFechaInicio))
+    }
+    if (filtroFechaFin) {
+      resultado = resultado.filter(i => new Date(i.movimientos?.fecha) <= new Date(filtroFechaFin + 'T23:59:59'))
+    }
+
+    setIncidencias(resultado)
     setLoading(false)
   }
 
   async function cargarMovimientos() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('movimientos')
-      .select('*')
+      .select(`
+        id_movimiento, tipo, fecha, observacion,
+        proveedores(razon_social),
+        detalle_movimientos(
+          cantidad,
+          productos(nombre),
+          ubicaciones_destino:ubicaciones!detalle_movimientos_id_ubicacion_destino_fkey(nombre)
+        )
+      `)
       .eq('tipo', 'ingreso_proveedor')
-      .order('fecha', { ascending: false })
+      .order('id_movimiento', { ascending: false })
+      .limit(50)
+
+    if (error) console.error('Error:', error)
     setMovimientos(data || [])
   }
 
@@ -54,6 +93,19 @@ function Incidencias() {
       setForm({ id_movimiento: '', descripcion: '', gravedad: 'leve' })
       cargarIncidencias()
     }
+  }
+
+  function handleBuscar() {
+    setBuscando(true)
+    cargarIncidencias(true)
+  }
+
+  function handleLimpiar() {
+    setFiltroFechaInicio('')
+    setFiltroFechaFin('')
+    setFiltroGravedad('')
+    setBuscando(false)
+    cargarIncidencias(false)
   }
 
   function colorGravedad(gravedad) {
@@ -84,15 +136,25 @@ function Incidencias() {
           <div className="space-y-4">
             <div>
               <label className="text-sm text-gray-600">Ingreso de proveedor *</label>
+
+              <div>
+                 <button type="button" onClick={cargarMovimientos}
+                   className="text-blue-500 text-xs hover:text-blue-700">
+                 🔄 Actualizar lista
+                </button>
+              </div>
+
+              
               <select
                 value={form.id_movimiento}
                 onChange={(e) => setForm({ ...form, id_movimiento: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
               >
+  
                 <option value="">Seleccionar ingreso</option>
                 {movimientos.map(m => (
                   <option key={m.id_movimiento} value={m.id_movimiento}>
-                    Ingreso #{m.id_movimiento} — {new Date(m.fecha).toLocaleDateString('es-PE')}
+                    #{m.id_movimiento} | {new Date(m.fecha).toLocaleDateString('es-PE')} | {m.proveedores?.razon_social || 'Sin proveedor'} | {m.detalle_movimientos?.[0]?.productos?.nombre || 'Sin producto'} | {m.detalle_movimientos?.[0]?.ubicaciones_destino?.nombre || ''}
                   </option>
                 ))}
               </select>
@@ -120,22 +182,57 @@ function Incidencias() {
               />
             </div>
             <div className="flex gap-3">
-              <button
-                onClick={handleGuardar}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-              >
+              <button onClick={handleGuardar}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
                 Guardar
               </button>
-              <button
-                onClick={() => setShowForm(false)}
-                className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm"
-              >
+              <button onClick={() => setShowForm(false)}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm">
                 Cancelar
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Filtros */}
+      <div className="bg-white rounded-xl shadow p-4 mb-4">
+        <div className="grid grid-cols-4 gap-3 mb-3">
+          <div>
+            <label className="text-xs text-gray-500">Fecha inicio</label>
+            <input type="date" value={filtroFechaInicio}
+              onChange={(e) => setFiltroFechaInicio(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Fecha fin</label>
+            <input type="date" value={filtroFechaFin}
+              onChange={(e) => setFiltroFechaFin(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">Gravedad</label>
+            <select value={filtroGravedad} onChange={(e) => setFiltroGravedad(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1">
+              <option value="">Todas</option>
+              <option value="leve">Leve</option>
+              <option value="moderada">Moderada</option>
+              <option value="grave">Grave</option>
+            </select>
+          </div>
+          <div className="flex items-end gap-2">
+            <button onClick={handleBuscar}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+              Buscar
+            </button>
+            <button onClick={handleLimpiar}
+              className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm">
+              Limpiar
+            </button>
+          </div>
+        </div>
+        {!buscando && <p className="text-xs text-gray-400">Mostrando últimas 20 incidencias.</p>}
+      </div>
 
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <table className="w-full text-sm">
@@ -156,7 +253,9 @@ function Incidencias() {
               incidencias.map(i => (
                 <tr key={i.id_incidencia} className="border-t border-gray-100 hover:bg-gray-50">
                   <td className="px-4 py-3">{i.id_incidencia}</td>
-                  <td className="px-4 py-3">Ingreso #{i.id_movimiento} — {i.movimientos ? formatFecha(i.movimientos.fecha) : '-'}</td>
+                  <td className="px-4 py-3">
+                    Ingreso #{i.id_movimiento} — {i.movimientos ? new Date(i.movimientos.fecha).toLocaleDateString('es-PE') : '-'}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs ${colorGravedad(i.gravedad)}`}>
                       {i.gravedad}

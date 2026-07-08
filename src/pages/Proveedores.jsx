@@ -6,6 +6,7 @@ function Proveedores() {
   const [proveedores, setProveedores] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editando, setEditando] = useState(null)
   const [busqueda, setBusqueda] = useState('')
   const [form, setForm] = useState({
     razon_social: '',
@@ -33,19 +34,40 @@ function Proveedores() {
       alert('La razón social es obligatoria')
       return
     }
-    const { error } = await supabase.from('proveedores').insert({
-      razon_social: form.razon_social,
-      ruc: form.ruc,
-      contacto_whatsapp: form.contacto_whatsapp,
-      direccion: form.direccion,
-    })
-    if (error) {
-      alert('Error: ' + error.message)
+
+    if (editando) {
+      const { error } = await supabase.from('proveedores').update({
+        razon_social: form.razon_social,
+        ruc: form.ruc,
+        contacto_whatsapp: form.contacto_whatsapp,
+        direccion: form.direccion,
+      }).eq('id_proveedor', editando)
+      if (error) { alert('Error: ' + error.message); return }
     } else {
-      setShowForm(false)
-      setForm({ razon_social: '', ruc: '', contacto_whatsapp: '', direccion: '' })
-      cargarProveedores()
+      const { error } = await supabase.from('proveedores').insert({
+        razon_social: form.razon_social,
+        ruc: form.ruc,
+        contacto_whatsapp: form.contacto_whatsapp,
+        direccion: form.direccion,
+      })
+      if (error) { alert('Error: ' + error.message); return }
     }
+
+    setShowForm(false)
+    setEditando(null)
+    setForm({ razon_social: '', ruc: '', contacto_whatsapp: '', direccion: '' })
+    cargarProveedores()
+  }
+
+  function handleEditar(p) {
+    setEditando(p.id_proveedor)
+    setForm({
+      razon_social: p.razon_social,
+      ruc: p.ruc || '',
+      contacto_whatsapp: p.contacto_whatsapp || '',
+      direccion: p.direccion || '',
+    })
+    setShowForm(true)
   }
 
   async function handleEliminar(id) {
@@ -54,16 +76,22 @@ function Proveedores() {
     cargarProveedores()
   }
 
-  const proveedoresFiltrados = proveedores.filter(p =>
-    p.razon_social.toLowerCase().includes(busqueda.toLowerCase())
-  )
+  const proveedoresFiltrados = proveedores.filter(p => {
+    const texto = busqueda.toLowerCase()
+    return (
+      p.razon_social?.toLowerCase().includes(texto) ||
+      p.ruc?.toLowerCase().includes(texto) ||
+      p.contacto_whatsapp?.includes(texto) ||
+      p.direccion?.toLowerCase().includes(texto)
+    )
+  })
 
   return (
     <Layout>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-gray-700">Proveedores</h2>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => { setShowForm(true); setEditando(null); setForm({ razon_social: '', ruc: '', contacto_whatsapp: '', direccion: '' }) }}
           className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm"
         >
           + Agregar proveedor
@@ -73,7 +101,7 @@ function Proveedores() {
       <div className="mb-4">
         <input
           type="text"
-          placeholder="Buscar proveedor..."
+          placeholder="Buscar por razón social, RUC, WhatsApp o dirección..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -82,58 +110,44 @@ function Proveedores() {
 
       {showForm && (
         <div className="bg-white rounded-xl shadow p-6 mb-6">
-          <h3 className="text-md font-semibold text-gray-700 mb-4">Nuevo Proveedor</h3>
+          <h3 className="text-md font-semibold text-gray-700 mb-4">
+            {editando ? 'Editar Proveedor' : 'Nuevo Proveedor'}
+          </h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-gray-600">Razón Social *</label>
-              <input
-                type="text"
-                value={form.razon_social}
+              <input type="text" value={form.razon_social}
                 onChange={(e) => setForm({ ...form, razon_social: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
-              />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
             <div>
               <label className="text-sm text-gray-600">RUC</label>
-              <input
-                type="text"
-                value={form.ruc}
+              <input type="text" value={form.ruc}
                 onChange={(e) => setForm({ ...form, ruc: e.target.value })}
                 maxLength={11}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
-              />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
             <div>
               <label className="text-sm text-gray-600">WhatsApp</label>
-              <input
-                type="text"
-                value={form.contacto_whatsapp}
+              <input type="text" value={form.contacto_whatsapp}
                 onChange={(e) => setForm({ ...form, contacto_whatsapp: e.target.value })}
                 placeholder="Ej: 999999999"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
-              />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
             <div>
               <label className="text-sm text-gray-600">Dirección</label>
-              <input
-                type="text"
-                value={form.direccion}
+              <input type="text" value={form.direccion}
                 onChange={(e) => setForm({ ...form, direccion: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
-              />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
           </div>
           <div className="flex gap-3 mt-4">
-            <button
-              onClick={handleGuardar}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-            >
-              Guardar
+            <button onClick={handleGuardar}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+              {editando ? 'Actualizar' : 'Guardar'}
             </button>
-            <button
-              onClick={() => setShowForm(false)}
-              className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm"
-            >
+            <button onClick={() => { setShowForm(false); setEditando(null) }}
+              className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm">
               Cancelar
             </button>
           </div>
@@ -163,23 +177,18 @@ function Proveedores() {
                   <td className="px-4 py-3">{p.ruc || '-'}</td>
                   <td className="px-4 py-3">
                     {p.contacto_whatsapp ? (
-                      <a href={`https://wa.me/51${p.contacto_whatsapp}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-green-600 hover:text-green-800 font-medium"
-                      >
+                      <a href={`https://wa.me/51${p.contacto_whatsapp}`} target="_blank" rel="noopener noreferrer"
+                        className="text-green-600 hover:text-green-800 font-medium">
                         {p.contacto_whatsapp} 📱
                       </a>
                     ) : '-'}
                   </td>
                   <td className="px-4 py-3">{p.direccion || '-'}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleEliminar(p.id_proveedor)}
-                      className="text-red-500 hover:text-red-700 text-xs"
-                    >
-                      Eliminar
-                    </button>
+                  <td className="px-4 py-3 flex gap-2">
+                    <button onClick={() => handleEditar(p)}
+                      className="text-blue-500 hover:text-blue-700 text-xs">Editar</button>
+                    <button onClick={() => handleEliminar(p.id_proveedor)}
+                      className="text-red-500 hover:text-red-700 text-xs">Eliminar</button>
                   </td>
                 </tr>
               ))

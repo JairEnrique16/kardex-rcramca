@@ -7,6 +7,8 @@ function Ingresos() {
   const { user } = useAuth()
   const [productos, setProductos] = useState([])
   const [ubicaciones, setUbicaciones] = useState([])
+  const [proveedores, setProveedores] = useState([])
+  const [proveedorSeleccionado, setProveedorSeleccionado] = useState('')
   const [loading, setLoading] = useState(false)
   const [exito, setExito] = useState(false)
   const [tipo, setTipo] = useState('ingreso_proveedor')
@@ -18,7 +20,13 @@ function Ingresos() {
   useEffect(() => {
     cargarProductos()
     cargarUbicaciones()
+    cargarProveedores()
   }, [])
+  
+  async function cargarProveedores() {
+    const { data } = await supabase.from('proveedores').select('*').order('razon_social')
+    setProveedores(data || [])
+  }
 
   async function cargarProductos() {
     const { data } = await supabase
@@ -72,6 +80,7 @@ function Ingresos() {
         tipo,
         id_usuario: user.id,
         observacion,
+        id_proveedor: proveedorSeleccionado ? parseInt(proveedorSeleccionado) : null,
       })
       .select()
       .single()
@@ -154,6 +163,24 @@ function Ingresos() {
               + Agregar producto
             </button>
           </div>
+
+          {tipo === 'ingreso_proveedor' && (
+          <div className="mb-4">
+            <label className="text-sm text-gray-600">Proveedor</label>
+            <select
+              value={proveedorSeleccionado}
+              onChange={(e) => setProveedorSeleccionado(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
+            >
+              <option value="">Seleccionar proveedor (opcional)</option>
+              {proveedores.map(p => (
+                <option key={p.id_proveedor} value={p.id_proveedor}>
+                  {p.razon_social} {p.ruc ? `— RUC: ${p.ruc}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
           <div className="space-y-3">
             {items.map((item, index) => {
@@ -242,7 +269,7 @@ function Ingresos() {
             {loading ? 'Registrando...' : 'Confirmar Ingreso'}
           </button>
           <button
-            onClick={() => { setItems([{ id_producto: '', cantidad: '', id_ubicacion_destino: '' }]); setObservacion('') }}
+            onClick={() => { setItems([{ id_producto: '', cantidad: '', id_ubicacion_destino: '' }]); setObservacion(''); setProveedorSeleccionado('') }}
             className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-lg text-sm"
           >
             Limpiar
