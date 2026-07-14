@@ -28,7 +28,7 @@ function Reclamos() {
 
     let query = supabase
       .from('registro_reclamos')
-      .select('*, ventas_cabecera(id_venta, fecha)')
+      .select('*, ventas_cabecera(id_venta, fecha, total_venta, clientes(nombre_razon_social))')
       .order('id_reclamo', { ascending: false })
 
     if (filtroEstado) query = query.eq('estado', filtroEstado)
@@ -51,10 +51,17 @@ function Reclamos() {
   async function cargarVentas() {
     const { data } = await supabase
       .from('ventas_cabecera')
-      .select('*')
+      .select('*, clientes(nombre_razon_social)')
       .order('fecha', { ascending: false })
     setVentas(data || [])
   }
+
+  function etiquetaVenta(v) {
+  const cliente = v.clientes?.nombre_razon_social || v.cliente_ocasional || 'Cliente ocasional'
+  const fecha = new Date(v.fecha).toLocaleDateString('es-PE')
+  const total = v.total_venta != null ? ` — S/ ${v.total_venta}` : ''
+  return `#${v.id_venta} · ${cliente} · ${fecha}${total}`
+}
 
   async function handleGuardar() {
     if (!form.id_venta || !form.motivo) {
@@ -154,7 +161,7 @@ function Reclamos() {
                   <option value="">Seleccionar venta</option>
                   {ventas.map(v => (
                     <option key={v.id_venta} value={v.id_venta}>
-                      Venta #{v.id_venta} — {new Date(v.fecha).toLocaleDateString('es-PE')}
+                      {etiquetaVenta(v)}
                     </option>
                   ))}
                 </select>
@@ -256,7 +263,14 @@ function Reclamos() {
               reclamos.map(r => (
                 <tr key={r.id_reclamo} className="border-t border-gray-100 hover:bg-gray-50">
                   <td className="px-4 py-3">{r.id_reclamo}</td>
-                  <td className="px-4 py-3">Venta #{r.id_venta}</td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-gray-700">
+                      {r.ventas_cabecera?.clientes?.nombre_razon_social || r.ventas_cabecera?.cliente_ocasional || 'Cliente ocasional'}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Venta #{r.id_venta} · {r.ventas_cabecera?.fecha ? new Date(r.ventas_cabecera.fecha).toLocaleDateString('es-PE') : '-'}
+                    </p>
+                  </td>
                   <td className="px-4 py-3">{r.motivo}</td>
                   <td className="px-4 py-3 text-xs text-gray-500">{r.descripcion || '-'}</td>
                   <td className="px-4 py-3">

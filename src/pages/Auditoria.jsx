@@ -68,37 +68,50 @@ function Auditoria() {
     return new Date(fecha).toLocaleString('es-PE')
   }
 
+  function colorModulo(modulo) {
+    const colores = {
+      Productos: 'bg-brand-blue/10 text-brand-blue',
+      Usuarios: 'bg-purple-50 text-purple-600',
+      Clientes: 'bg-amber-50 text-amber-600',
+      Mermas: 'bg-danger/10 text-danger-dark',
+    }
+    return colores[modulo] || 'bg-gray-100 text-gray-500'
+  }
+
   return (
     <Layout>
-      <h2 className="text-xl font-bold text-gray-700 mb-6">Auditoría de Acciones</h2>
+      <div className="mb-6">
+        <h2 className="app-title text-2xl">Auditoría de Acciones</h2>
+        <p className="text-sm text-gray-400 mt-1">Historial de acciones realizadas por los usuarios del sistema.</p>
+      </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-xl shadow p-4 mb-6">
-        <div className="grid grid-cols-4 gap-4 mb-3">
+      <div className="app-card p-5 mb-6">
+        <div className="grid grid-cols-4 gap-4 mb-4">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Fecha inicio</label>
+            <label className="text-xs font-medium text-gray-500 mb-1.5 block">Fecha inicio</label>
             <input
               type="date"
               value={filtroFechaInicio}
               onChange={(e) => setFiltroFechaInicio(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="input-base"
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Fecha fin</label>
+            <label className="text-xs font-medium text-gray-500 mb-1.5 block">Fecha fin</label>
             <input
               type="date"
               value={filtroFechaFin}
               onChange={(e) => setFiltroFechaFin(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="input-base"
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Módulo</label>
+            <label className="text-xs font-medium text-gray-500 mb-1.5 block">Módulo</label>
             <select
               value={filtroModulo}
               onChange={(e) => setFiltroModulo(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="input-base"
             >
               <option value="">Todos</option>
               <option value="Productos">Productos</option>
@@ -108,57 +121,57 @@ function Auditoria() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Usuario</label>
+            <label className="text-xs font-medium text-gray-500 mb-1.5 block">Usuario</label>
             <input
               type="text"
               placeholder="Buscar por usuario..."
               value={filtroUsuario}
               onChange={(e) => setFiltroUsuario(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="input-base"
             />
           </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleBuscar}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-          >
+        <div className="flex gap-2 items-center">
+          <button onClick={handleBuscar} className="btn-primary">
             Buscar
           </button>
-          <button
-            onClick={handleLimpiar}
-            className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm"
-          >
+          <button onClick={handleLimpiar} className="btn-ghost">
             Limpiar
           </button>
+          {!buscando && (
+            <p className="text-xs text-gray-400 ml-2">Mostrando últimos 20 registros. Usa los filtros para ver más.</p>
+          )}
         </div>
-        {!buscando && (
-          <p className="text-xs text-gray-400 mt-2">Mostrando últimos 20 registros. Usa los filtros para ver más.</p>
-        )}
       </div>
 
-      <div className="bg-white rounded-xl shadow overflow-hidden">
+      <div className="app-card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600">
+          <thead className="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
             <tr>
-              <th className="px-4 py-3 text-left">Fecha y Hora</th>
-              <th className="px-4 py-3 text-left">Usuario</th>
-              <th className="px-4 py-3 text-left">Acción</th>
-              <th className="px-4 py-3 text-left">Módulo</th>
+              <th className="px-5 py-3.5 text-left font-semibold">Fecha y Hora</th>
+              <th className="px-5 py-3.5 text-left font-semibold">Usuario</th>
+              <th className="px-5 py-3.5 text-left font-semibold">Acción</th>
+              <th className="px-5 py-3.5 text-left font-semibold">Módulo</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="4" className="text-center py-8 text-gray-400">Cargando...</td></tr>
+              <tr><td colSpan="4" className="text-center py-10 text-gray-400">Cargando...</td></tr>
             ) : logs.length === 0 ? (
-              <tr><td colSpan="4" className="text-center py-8 text-gray-400">No hay registros de auditoría.</td></tr>
+              <tr><td colSpan="4" className="text-center py-10 text-gray-400">No hay registros de auditoría.</td></tr>
             ) : (
               logs.map(log => (
-                <tr key={log.id_log} className="border-t border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-3 text-xs">{formatFecha(log.fecha_hora)}</td>
-                  <td className="px-4 py-3">{log.nombre_usuario}</td>
-                  <td className="px-4 py-3">{log.accion_realizada}</td>
-                  <td className="px-4 py-3">{log.tabla_afectada || '-'}</td>
+                <tr key={log.id_log} className="border-t border-gray-100 hover:bg-gray-50/60 transition">
+                  <td className="px-5 py-3.5 text-xs text-gray-500">{formatFecha(log.fecha_hora)}</td>
+                  <td className="px-5 py-3.5 font-medium text-gray-700">{log.nombre_usuario}</td>
+                  <td className="px-5 py-3.5 text-gray-600">{log.accion_realizada}</td>
+                  <td className="px-5 py-3.5">
+                    {log.tabla_afectada ? (
+                      <span className={`badge ${colorModulo(log.tabla_afectada)}`}>{log.tabla_afectada}</span>
+                    ) : (
+                      <span className="text-gray-300">-</span>
+                    )}
+                  </td>
                 </tr>
               ))
             )}

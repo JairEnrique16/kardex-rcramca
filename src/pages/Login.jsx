@@ -158,7 +158,7 @@ function Login() {
             <span style={{ color: 'white', fontSize: '22px', fontWeight: '900' }}>RC</span>
           </div>
           <h1 style={{ color: 'white', fontSize: '22px', fontWeight: '800', margin: '0 0 4px' }}>RC RAMCA Perú</h1>
-          <p style={{ color: 'rgba(150,230,150,0.7)', fontSize: '12px', margin: 0 }}>🌿 Sistema Kardex — Productos Naturales</p>
+          <p style={{ color: 'rgba(150,230,150,0.7)', fontSize: '12px', margin: 0 }}>🌿 Sistema de Productos Naturales</p>
         </div>
 
         <form onSubmit={handleSubmit}>

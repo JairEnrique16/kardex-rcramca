@@ -1,1 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --color-brand-green: #87C38F;
+  --color-brand-green-dark: #5FA06B;
+  --color-brand-blue: #2E6F9E;
+  --color-brand-blue-dark: #1B4965;
+  --color-brand-navy: #12283A;
+  --color-brand-navy-light: #1E3B52;
+  --color-surface: #F9FBF9;
+  --color-danger: #D9534F;
+  --color-danger-dark: #C0392B;
+
+  --font-display: 'Sora', sans-serif;
+  --font-sans: 'Inter', sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-surface);
+}
+
+@layer components {
+  .app-card {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-sm;
+  }
+  .app-title {
+    @apply font-display font-bold text-gray-800;
+  }
+  .btn-primary {
+    @apply bg-brand-blue hover:bg-brand-blue-dark text-white px-4 py-2 rounded-lg text-sm font-medium transition;
+  }
+  .btn-success {
+    @apply bg-brand-green-dark hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition;
+  }
+  .btn-danger {
+    @apply bg-danger hover:bg-danger-dark text-white px-4 py-2 rounded-lg text-sm font-medium transition;
+  }
+  .btn-ghost {
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition;
+  }
+  .input-base {
+    @apply w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-blue/40 focus:border-brand-blue transition;
+  }
+  .badge {
+    @apply text-xs font-medium px-2.5 py-1 rounded-full;
+  }
+  .badge-solid-blue {
+  @apply bg-brand-blue text-white;
+}
+.badge-solid-green {
+  @apply bg-brand-green-dark text-white;
+}
+}

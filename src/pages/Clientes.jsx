@@ -59,6 +59,7 @@ function Clientes() {
         alert('Error: ' + error.message)
         return
       }
+
       await registrarAuditoria(user?.id, 'Nuevo cliente registrado: ' + form.nombre_razon_social + ' (' + form.tipo + ')', 'Clientes')
     }
 
@@ -85,6 +86,15 @@ function Clientes() {
     cargarClientes()
   }
 
+  function iniciales(nombre) {
+    return nombre
+      ?.split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(p => p[0]?.toUpperCase())
+      .join('') || '?'
+  }
+
   const clientesFiltrados = clientes.filter(c => {
     const cumpleNombre = c.nombre_razon_social.toLowerCase().includes(busqueda.toLowerCase())
     const cumpleTelefono = c.telefono?.includes(busqueda)
@@ -96,28 +106,33 @@ function Clientes() {
   return (
     <Layout>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-gray-700">Clientes</h2>
+        <div>
+          <h2 className="app-title text-2xl">Clientes</h2>
+          <p className="text-sm text-gray-400 mt-1">
+            {clientes.length} cliente{clientes.length !== 1 ? 's' : ''} registrado{clientes.length !== 1 ? 's' : ''}
+          </p>
+        </div>
         <button
           onClick={() => { setShowForm(true); setEditando(null); setForm({ nombre_razon_social: '', tipo: 'minorista', telefono: '' }) }}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm"
+          className="btn-success"
         >
           + Agregar cliente
         </button>
       </div>
 
       {/* Filtros */}
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-3 mb-6">
         <input
           type="text"
           placeholder="Buscar por nombre o teléfono..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-base flex-1"
         />
         <select
           value={filtroTipo}
           onChange={(e) => setFiltroTipo(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          className="input-base w-48"
         >
           <option value="">Todos los tipos</option>
           <option value="minorista">Minorista</option>
@@ -126,51 +141,48 @@ function Clientes() {
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-xl shadow p-6 mb-6">
-          <h3 className="text-md font-semibold text-gray-700 mb-4">
+        <div className="app-card p-6 mb-6 border-brand-blue/20">
+          <h3 className="app-title text-base mb-5">
             {editando ? 'Editar Cliente' : 'Nuevo Cliente'}
           </h3>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="text-sm text-gray-600">Nombre / Razón Social *</label>
+              <label className="text-xs font-medium text-gray-500 mb-1.5 block">Nombre / Razón Social *</label>
               <input
                 type="text"
                 value={form.nombre_razon_social}
                 onChange={(e) => setForm({ ...form, nombre_razon_social: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
+                className="input-base"
               />
             </div>
             <div>
-              <label className="text-sm text-gray-600">Tipo *</label>
+              <label className="text-xs font-medium text-gray-500 mb-1.5 block">Tipo *</label>
               <select
                 value={form.tipo}
                 onChange={(e) => setForm({ ...form, tipo: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
+                className="input-base"
               >
                 <option value="minorista">Minorista</option>
                 <option value="mayorista">Mayorista</option>
               </select>
             </div>
             <div>
-              <label className="text-sm text-gray-600">Teléfono</label>
+              <label className="text-xs font-medium text-gray-500 mb-1.5 block">Teléfono</label>
               <input
                 type="text"
                 value={form.telefono}
                 onChange={(e) => setForm({ ...form, telefono: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1"
+                className="input-base"
               />
             </div>
           </div>
-          <div className="flex gap-3 mt-4">
-            <button
-              onClick={handleGuardar}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-            >
+          <div className="flex gap-3 mt-5">
+            <button onClick={handleGuardar} className="btn-primary">
               {editando ? 'Actualizar' : 'Guardar'}
             </button>
             <button
               onClick={() => { setShowForm(false); setEditando(null) }}
-              className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm"
+              className="btn-ghost"
             >
               Cancelar
             </button>
@@ -178,43 +190,51 @@ function Clientes() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow overflow-hidden">
+      <div className="app-card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600">
+          <thead className="bg-gray-50/80 text-gray-500 text-xs uppercase tracking-wide">
             <tr>
-              <th className="px-4 py-3 text-left">ID</th>
-              <th className="px-4 py-3 text-left">Nombre / Razón Social</th>
-              <th className="px-4 py-3 text-left">Tipo</th>
-              <th className="px-4 py-3 text-left">Teléfono</th>
-              <th className="px-4 py-3 text-left">Acciones</th>
+              <th className="px-5 py-3.5 text-left font-semibold">Cliente</th>
+              <th className="px-5 py-3.5 text-left font-semibold">Tipo</th>
+              <th className="px-5 py-3.5 text-left font-semibold">Teléfono</th>
+              <th className="px-5 py-3.5 text-left font-semibold">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="5" className="text-center py-8 text-gray-400">Cargando...</td></tr>
+              <tr><td colSpan="4" className="text-center py-10 text-gray-400">Cargando...</td></tr>
             ) : clientesFiltrados.length === 0 ? (
-              <tr><td colSpan="5" className="text-center py-8 text-gray-400">No hay clientes registrados.</td></tr>
+              <tr><td colSpan="4" className="text-center py-10 text-gray-400">No hay clientes registrados.</td></tr>
             ) : (
               clientesFiltrados.map(c => (
-                <tr key={c.id_cliente} className="border-t border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-3">{c.id_cliente}</td>
-                  <td className="px-4 py-3 font-medium">{c.nombre_razon_social}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs ${c.tipo === 'mayorista' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {c.tipo}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">{c.telefono || '-'}</td>
-                  <td className="px-4 py-3 flex gap-2">
+                <tr key={c.id_cliente} className="border-t border-gray-100 hover:bg-gray-50/60 transition">
+                   <td className="px-5 py-3.5">
+  <div className="flex items-center gap-3">
+    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0 ${c.tipo === 'mayorista' ? 'bg-brand-blue' : 'bg-brand-green-dark'}`}>
+      {iniciales(c.nombre_razon_social)}
+    </div>
+    <div>
+      <p className="font-medium text-gray-700">{c.nombre_razon_social}</p>
+      <p className="text-xs text-gray-400">ID #{c.id_cliente}</p>
+    </div>
+  </div>
+</td>
+<td className="px-5 py-3.5">
+  <span className={`badge ${c.tipo === 'mayorista' ? 'badge-solid-blue' : 'badge-solid-green'}`}>
+    {c.tipo}
+  </span>
+</td>
+                  <td className="px-5 py-3.5 text-gray-600">{c.telefono || '-'}</td>
+                  <td className="px-5 py-3.5">
                     <button
                       onClick={() => handleEditar(c)}
-                      className="text-blue-500 hover:text-blue-700 text-xs"
+                      className="text-brand-blue hover:text-brand-blue-dark text-xs font-medium mr-4"
                     >
                       Editar
                     </button>
                     <button
                       onClick={() => handleEliminar(c.id_cliente)}
-                      className="text-red-500 hover:text-red-700 text-xs"
+                      className="text-danger hover:text-danger-dark text-xs font-medium"
                     >
                       Eliminar
                     </button>

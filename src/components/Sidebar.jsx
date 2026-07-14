@@ -31,12 +31,13 @@ function Sidebar() {
     { path: '/reclamos', label: 'Reclamos' },
   ]
 
- const menuVendedor = [
+  const menuVendedor = [
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/ventas', label: 'Registrar Venta' },
     { path: '/consulta-stock', label: 'Consultar Stock' },
     { path: '/precios', label: 'Consultar Precios' },
   ]
+
   const menuProduccion = [
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/insumos', label: 'Insumos' },
@@ -44,51 +45,64 @@ function Sidebar() {
     { path: '/ordenes-produccion', label: 'Órdenes de Producción' },
   ]
 
-  function getMenu() {
-    switch (perfil?.rol) {
-      case 'administrador': return menuAdmin
-      case 'encargado': return menuEncargado
-      case 'vendedor': return menuVendedor
-      case 'jefe_produccion': return menuProduccion
-      default: return []
-    }
+  const rolInfo = {
+    administrador: { menu: menuAdmin, label: 'Administrador', color: 'bg-brand-blue' },
+    encargado: { menu: menuEncargado, label: 'Encargado de Tienda', color: 'bg-brand-green-dark' },
+    vendedor: { menu: menuVendedor, label: 'Vendedor', color: 'bg-amber-500' },
+    jefe_produccion: { menu: menuProduccion, label: 'Producción', color: 'bg-purple-500' },
   }
 
+  const actual = rolInfo[perfil?.rol] || { menu: [], label: perfil?.rol || '-', color: 'bg-gray-500' }
+
   return (
-    <div className="w-56 min-h-screen bg-gray-800 text-white flex flex-col">
-      <div className="p-4 border-b border-gray-700">
-        <h1 className="text-sm font-bold">Sistema Kardex</h1>
-        <p className="text-xs text-gray-400">RC RAMCA Perú</p>
+    <div className="w-64 min-h-screen bg-brand-navy text-white flex flex-col">
+      <div className="p-5 flex items-center gap-3 border-b border-white/10">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-green to-brand-blue flex items-center justify-center font-display font-bold text-white text-sm shrink-0">
+          RC
+        </div>
+        <div className="min-w-0">
+          <h1 className="font-display font-bold text-sm leading-tight truncate">Sistema de Productos Naturales</h1>
+          <p className="text-xs text-white/50 truncate">RC RAMCA Perú</p>
+        </div>
       </div>
 
-      <div className="p-4 border-b border-gray-700">
-        <p className="text-xs text-gray-400">Usuario</p>
-        <p className="text-sm font-semibold">{perfil?.nombre}</p>
-        <p className="text-xs text-blue-400 capitalize">{perfil?.rol}</p>
+      <div className="px-5 py-4 border-b border-white/10">
+        <p className="text-[11px] uppercase tracking-wide text-white/40 mb-1.5">Sesión activa</p>
+        <p className="text-sm font-semibold truncate">{perfil?.nombre}</p>
+        <span className={`inline-block mt-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full text-white ${actual.color}`}>
+          {actual.label}
+        </span>
       </div>
 
-      <nav className="flex-1 p-2">
-        {getMenu().map((item) => (
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        {actual.menu.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `block px-3 py-2 rounded-lg text-sm mb-1 transition ${
+              `relative flex items-center px-3.5 py-2.5 rounded-lg text-sm transition ${
                 isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-700'
+                  ? 'bg-white/10 text-white font-medium'
+                  : 'text-white/60 hover:bg-white/5 hover:text-white/90'
               }`
             }
           >
-            {item.label}
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-full bg-brand-green" />
+                )}
+                <span className="pl-2">{item.label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-gray-700">
+      <div className="p-4 border-t border-white/10">
         <button
           onClick={handleLogout}
-          className="w-full text-sm bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg"
+          className="w-full text-sm bg-white/5 hover:bg-danger/90 text-white/80 hover:text-white py-2.5 rounded-lg transition font-medium"
         >
           Cerrar sesión
         </button>

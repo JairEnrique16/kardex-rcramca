@@ -11,6 +11,7 @@ function Productos() {
   const [stockData, setStockData] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editando, setEditando] = useState(null)
   const [busqueda, setBusqueda] = useState('')
   const [filtroCat, setFiltroCat] = useState('')
   const [filtroUnidad, setFiltroUnidad] = useState('')
@@ -61,12 +62,36 @@ function Productos() {
       .reduce((sum, s) => sum + s.cantidad_actual, 0)
   }
 
+  function handleEditar(p) {
+    setEditando(p.id_producto)
+    setForm({
+      nombre: p.nombre || '',
+      descripcion: p.descripcion || '',
+      unidad_medida: p.unidad_medida || '',
+      precio_minorista: (p.precio_minorista ?? p.precio_referencia ?? '').toString(),
+      precio_mayorista: (p.precio_mayorista ?? '').toString(),
+      cantidad_minima_mayorista: (p.cantidad_minima_mayorista ?? 6).toString(),
+      stock_minimo: (p.stock_minimo ?? '').toString(),
+      id_categoria: p.id_categoria ? p.id_categoria.toString() : '',
+      marca: p.marca || '',
+    })
+    setShowForm(true)
+    window.scrollTo(0, 0)
+  }
+
+  function cerrarForm() {
+    setShowForm(false)
+    setEditando(null)
+    setForm({ nombre: '', descripcion: '', unidad_medida: '', precio_minorista: '', precio_mayorista: '', cantidad_minima_mayorista: '6', stock_minimo: '', id_categoria: '', marca: '' })
+  }
+
   async function handleGuardar() {
     if (!form.nombre || !form.unidad_medida || !form.stock_minimo) {
       alert('Nombre, unidad de medida y stock mínimo son obligatorios')
       return
     }
-    const { error } = await supabase.from('productos').insert({
+
+    const payload = {
       nombre: form.nombre,
       descripcion: form.descripcion,
       unidad_medida: form.unidad_medida,
@@ -77,16 +102,33 @@ function Productos() {
       stock_minimo: parseInt(form.stock_minimo),
       id_categoria: parseInt(form.id_categoria) || null,
       marca: form.marca || null,
-      activo: true,
-    })
-    if (error) {
-      alert('Error: ' + error.message)
+    }
+
+    if (editando) {
+      const { error } = await supabase.from('productos').update(payload).eq('id_producto', editando)
+
+      if (error) {
+        alert('Error: ' + error.message)
+      } else {
+        await registrarAuditoria(user?.id, 'Producto editado: ' + form.nombre, 'Productos')
+        cerrarForm()
+        cargarProductos()
+        cargarStock()
+      }
     } else {
-      await registrarAuditoria(user?.id, 'Registro nuevo de producto: ' + form.nombre, 'Productos')
-      setShowForm(false)
-      setForm({ nombre: '', descripcion: '', unidad_medida: '', precio_minorista: '', precio_mayorista: '', cantidad_minima_mayorista: '6', stock_minimo: '', id_categoria: '', marca: '' })
-      cargarProductos()
-      cargarStock()
+      const { error } = await supabase.from('productos').insert({
+        ...payload,
+        activo: true,
+      })
+
+      if (error) {
+        alert('Error: ' + error.message)
+      } else {
+        await registrarAuditoria(user?.id, 'Registro nuevo de producto: ' + form.nombre, 'Productos')
+        cerrarForm()
+        cargarProductos()
+        cargarStock()
+      }
     }
   }
 
@@ -127,7 +169,7 @@ function Productos() {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-gray-700">Productos</h2>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => { setEditando(null); setShowForm(true) }}
           className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm"
         >
           + Agregar producto
@@ -143,6 +185,7 @@ function Productos() {
           onChange={(e) => setBusqueda(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
         />
+
         <select
           value={filtroCat}
           onChange={(e) => setFiltroCat(e.target.value)}
@@ -158,7 +201,7 @@ function Productos() {
           onChange={(e) => setFiltroUnidad(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
         >
-          <option value="">Todas las unidades</option>
+          <option value="">Todas las Presentaciones</option>
           {unidades.map(u => <option key={u} value={u}>{u}</option>)}
         </select>
         <select
@@ -183,7 +226,9 @@ function Productos() {
       {/* Formulario */}
       {showForm && (
         <div className="bg-white rounded-xl shadow p-6 mb-6">
-          <h3 className="text-md font-semibold text-gray-700 mb-4">Nuevo Producto</h3>
+          <h3 className="text-md font-semibold text-gray-700 mb-4">
+            {editando ? 'Editar Producto' : 'Nuevo Producto'}
+          </h3>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="text-sm text-gray-600">Nombre *</label>
@@ -191,9 +236,9 @@ function Productos() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
             <div>
-              <label className="text-sm text-gray-600">Unidad de medida *</label>
+              <label className="text-sm text-gray-600">Pressentacion*</label>
               <input type="text" value={form.unidad_medida} onChange={(e) => setForm({ ...form, unidad_medida: e.target.value })}
-                placeholder="Ej: Unidad, Kg, Litro"
+                placeholder="Ej: Unidad, Caja x12, Bolsa 1kg"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
             <div>
@@ -216,6 +261,7 @@ function Productos() {
               <input type="number" value={form.cantidad_minima_mayorista} onChange={(e) => setForm({ ...form, cantidad_minima_mayorista: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-1" />
             </div>
+
             <div>
               <label className="text-sm text-gray-600">Stock mínimo *</label>
               <input type="number" value={form.stock_minimo} onChange={(e) => setForm({ ...form, stock_minimo: e.target.value })}
@@ -239,8 +285,10 @@ function Productos() {
           </div>
           <div className="flex gap-3 mt-4">
             <button onClick={handleGuardar}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">Guardar</button>
-            <button onClick={() => setShowForm(false)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+              {editando ? 'Actualizar' : 'Guardar'}
+            </button>
+            <button onClick={cerrarForm}
               className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm">Cancelar</button>
           </div>
         </div>
@@ -255,7 +303,7 @@ function Productos() {
               <th className="px-4 py-3 text-left">Nombre</th>
               <th className="px-4 py-3 text-left">Marca</th>
               <th className="px-4 py-3 text-left">Categoría</th>
-              <th className="px-4 py-3 text-left">Unidad</th>
+              <th className="px-4 py-3 text-left">Presentacion</th>
               <th className="px-4 py-3 text-left">P. Minorista</th>
               <th className="px-4 py-3 text-left">P. Mayorista</th>
               <th className="px-4 py-3 text-left">Stock actual</th>
@@ -265,6 +313,7 @@ function Productos() {
             </tr>
           </thead>
           <tbody>
+
             {loading ? (
               <tr><td colSpan="11" className="text-center py-8 text-gray-400">Cargando...</td></tr>
             ) : productosFiltrados.length === 0 ? (
@@ -294,6 +343,8 @@ function Productos() {
                       </span>
                     </td>
                     <td className="px-4 py-3 flex gap-2">
+                      <button onClick={() => handleEditar(p)}
+                        className="text-blue-500 hover:text-blue-700 text-xs">Editar</button>
                       {p.activo ? (
                         <button onClick={() => handleDesactivar(p.id_producto)}
                           className="text-orange-500 hover:text-orange-700 text-xs">Desactivar</button>
